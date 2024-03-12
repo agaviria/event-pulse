@@ -1,0 +1,12 @@
+[package]
+name = "event-pulse"
+version = "0.1.0"
+authors = ["Alejandro <mr.gaviria@gmail.com>"]
+edition = "2021"
+description = "Rust backend for an opinionated event notification system"
+license = "Apache-2.0"
+repository = "https://github.com/agaviria/event-pulse"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
