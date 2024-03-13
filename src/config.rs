@@ -1,28 +1,9 @@
-use std::{error::Error, fmt, fs, path::PathBuf};
 use dirs;
 use log::{debug, info};
+use std::{fs, path::PathBuf};
 use tracing::{error, span, Level};
 
-
-/// ConfigError enum, holds error variants relevant to configuration settings.
-#[derive(Debug)]
-pub enum ConfigError {
-  LocalDataDirUnavailable,
-  LocalAppDataDirCreationFailure(String),
-}
-
-impl Error for ConfigError {}
-
-impl fmt::Display for ConfigError {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match self {
-      ConfigError::LocalDataDirUnavailable => write!(f, "Failed to get the data directory."),
-      ConfigError::LocalAppDataDirCreationFailure(msg) => {
-                write!(f, "Failed to create directory: {}", msg)
-      },
-    }
-  }
-}
+use crate::error::ConfigError;
 
 /// Checks and/or creates the local application data directory.
 ///
