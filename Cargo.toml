@@ -1,6 +1,6 @@
 [package]
 name = "event-pulse"
-version = "0.1.0"
+version = "0.1.1-alpha.1"
 authors = ["Alejandro <mr.gaviria@gmail.com>"]
 edition = "2021"
 description = "Rust backend for an opinionated event notification system"
