@@ -1,3 +1,5 @@
+pub mod config;
+
 /// Days in a single week.
 #[allow(dead_code)]const DAYS_IN_WEEK: i64 = 7;
 /// Days ia a year. (Approximation)
