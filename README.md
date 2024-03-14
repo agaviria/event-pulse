@@ -12,7 +12,19 @@ a notification feed, supporting various formats for seamless integration.
 - Rich set of data aggregation tools
 - Designed for scalability and performance
 
-### Roadmap:
+## Specification: PulseDispatcher, PulseHandler, PulseListener
+
+_Event Sources:_ Events originate from various sources within the application. These sources can include user interactions (such as clicks or keypresses), system events (such as file system changes or network events), or custom triggers within the application's code. EventPulse will focus on custom triggers for first release version.
+
+_Event Handling Registration:_ Components interested in handling specific types of events register themselves with the event dispatcher. This registration typically involves associating event types with corresponding event handler functions or methods.
+
+_Event Dispatching:_ When an event occurs, it is passed to the event dispatcher. The dispatcher then determines the appropriate handlers for the event based on the event type and dispatches the event to them.
+
+_Event Handling:_ The registered event handlers receive the dispatched events and execute the associated logic or actions. Each handler typically performs a specific task or updates part of the application's state based on the received event.
+
+_Propagation and Flow Control:_ Allow events to propagate further after being handled by one set of event handlers. This propagation allows for event chaining or bubbling, where events can affect multiple components in a controlled manner.
+
+## Roadmap:
 
 - [ ] **Event Management Platform**: Utilize the `event.rs`, `notify.rs`, and
   `tags.rs` modules to create a comprehensive event management platform. Users
@@ -48,7 +60,13 @@ a notification feed, supporting various formats for seamless integration.
   module to create a project management tool where team members can assign tags
   to tasks, set up notifications, and track progress collaboratively.
 
-### Product ideas leveraging EventPulse and **[Structsy.rs](https://structsy.rs)**
+## EventPulse and **[Structsy.rs](https://structsy.rs)**
+Discover the potential of EventPulse in conjunction with Structsy.rs, providing 
+developers with a powerful toolkit for event-driven applications. Seamlessly 
+integrate EventPulse's efficient event handling and notification features with 
+the reliable data storage capabilities of Structsy.rs. Elevate your projects with
+the combined strength of these two robust libraries, enabling streamlined 
+development and enhanced performance.
 
 1. **Personal Productivity Companion**: Develop a personal productivity
    companion application that integrates with Structsy for data storage. Users
