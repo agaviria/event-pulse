@@ -1,6 +1,7 @@
 pub mod config;
 pub mod error;
 pub mod models;
+pub mod utils;
 
 /// Days in a single week.
 #[allow(dead_code)]
