@@ -1,247 +1,128 @@
-use once_cell::sync::Lazy;
-use regex::Regex;
-use std::convert::TryFrom;
-use std::fmt::{self, Display, Formatter};
-use std::ops::Deref;
-use std::str::FromStr;
+use std::fmt;
 use thiserror::Error;
 
-use pxid::{Error as PxidError, Factory}; // todo implement  code commented out below:
-
-/// Represents a prefix, component for xid that has a boundary constraint of 4 bytes.
-#[derive(Debug, Default, PartialEq, Eq)]
-pub struct Prefix(String);
-
-impl Prefix {
-    /// Creates a new `Prefix` instance.
-    ///
-    /// The provided prefix must not exceed 4 bytes in length. Prefix is a component part used to create a xid.
-    /// ```ignore
-    /// V V V V W W W W X X X Y Y Z Z Z
-    /// └─────┘ └─────────────────────┘
-    ///    |              |
-    /// Prefix            |
-    ///                   |
-    ///                   |
-    ///                  XID
-    /// ```
-    ///
-    /// # Arguments
-    ///
-    /// * `prefix` - The prefix value.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` containing the `Prefix` instance if successful, or a `PrefixError` if the prefix exceeds 4 bytes.
-    pub fn new(prefix: &str) -> Result<Self, UniqueIdentifierError> {
-        if prefix.len() > 4 {
-            Err(UniqueIdentifierError::InvalidPrefix)
-        } else {
-            Ok(Prefix(prefix.to_string()))
-        }
-    }
+/// Error type for Prefix creation failures.
+#[derive(Error, Debug, PartialEq)]
+pub enum PrefixError {
+    #[error("Invalid prefix length: Expected 1 to 4 bytes. Received: {0}")]
+    InvalidPrefixLength(String),
+    #[error("Invalid UTF-8 input")]
+    InvalidUtf8,
 }
 
-impl TryFrom<String> for Prefix {
-    type Error = UniqueIdentifierError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Prefix::new(&value)
+/// Generates a 4-byte string slice prefix from input string. If the input
+/// string is shorter than 4 bytes, it pads the result with zeros.
+pub fn prefix(input: &str) -> Result<[u8; 4], PrefixError> {
+    if !std::str::from_utf8(input.as_bytes()).is_ok() {
+        return Err(PrefixError::InvalidUtf8);
     }
+
+    let bytes = input.as_bytes();
+    let len = bytes.len();
+    if len == 0 || len > 4 {
+        return Err(PrefixError::InvalidPrefixLength(format!(
+            "Expected 1 to 4 bytes. Received: {}",
+            len
+        )));
+    }
+    let mut result = [0; 4];
+    result[..len].copy_from_slice(&bytes[..len]);
+    Ok(result)
 }
 
-impl FromStr for Prefix {
-    type Err = UniqueIdentifierError;
+/// Represents a concatenated ID consisting of a prefix and a timestamp.
+#[derive(Debug)]
+pub struct GlobalId([u8; 12]);
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Prefix::new(s)
-    }
-}
-
-/// Regular expression pattern for validating a unique identifier (UID).
-static RE_UID: Lazy<Regex> = Lazy::new(|| init_regex_valid_uid());
-
-/// Initializes and returns a regular expression for validating a unique identifier (UID).
+/// Generates a concatenated ID using the given prefix string.
+/// The provided prefix must not exceed 4 bytes in length. Prefix is a way to provide
+/// human readeable context to a global ID, similar to a `tag`.
 ///
-/// This function compiles a regular expression pattern used to validate unique identifiers.
-///
-/// # Returns
-///
-/// A `Regex` instance representing the compiled regular expression pattern.
-fn init_regex_valid_uid() -> Regex {
-    Regex::new(r"^[a-zA-Z_][a-zA-Z0-9_]*$").expect("Failed to compile unique identifier regex")
-}
-
-#[derive(Error, Debug)]
-pub enum UniqueIdentifierError {
-    #[error("Invalid unique identifier: {0}")]
-    InvalidUniqueIdentifier(String),
-    #[error("Failed to create Factory for xid: {0}")]
-    FactoryCreationError(#[from] PxidError),
-    #[error("Failed to create Uid: Invalid prefix length for xid")]
-    InvalidPrefix,
-}
-
-/// Represents a valid identifier.
-#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone, PartialOrd, Ord)]
-pub(crate) struct UniqueIdentifier {
-    uid: &'static str,
-}
-
-impl UniqueIdentifier {
-    // Constructor method
-    pub fn new(uid: &'static str) -> Self {
-        UniqueIdentifier { uid }
-    }
-
-    /// Creates a new identifier with a prefix using the provided factory.
-    ///
-    /// # Arguments
-    ///
-    /// * `factory` - The factory used to generate the identifier.
-    /// * `prefix` - The prefix to prepend to the generated identifier.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `UniqueIdentifierError` if the identifier creation fails.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use event_pulse::models::{UniqueIdentifier, uid::UniqueIdentifierError, uid::Prefix};
-    /// use pxid::Factory;
-    ///
-    /// # fn main() -> Result<(), UniqueIdentifierError> {
-    /// let prefix = Prefix::new("test")?;
-    /// let uid = UniqueIdentifier::new_with_prefix(prefix)?;
-    /// assert!(uid.to_string().starts_with("test"));
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn new_with_prefix(prefix: Prefix) -> Result<Self, UniqueIdentifierError> {
-        let factory = Factory::new()?;
-        let uid_with_prefix = Factory::new_id(&factory, &prefix.0)?;
-        let static_ref: &'static str = Box::leak(uid_with_prefix.to_string().into_boxed_str());
-        Ok(Self { uid: static_ref })
-    }
-
-    /// Determines whether a string value is a valid unique identifier (UID).
-    ///
-    /// # Arguments
-    ///
-    /// * `s` - The string value to check.
-    ///
-    /// # Returns
-    ///
-    /// Returns `true` if the string value is a valid unique identifier (UID), `false` otherwise.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use once_cell::sync::Lazy;
-    /// use regex::Regex;
-    ///
-    /// static RE_UID: Lazy<Regex> = Lazy::new(|| init_regex_valid_uid());
-    ///
-    /// fn init_regex_valid_uid() -> Regex {
-    ///     Regex::new(r"^[a-zA-Z_][a-zA-Z0-9_]*$").expect("Failed to compile unique identifier regex")
-    /// }
-    ///
-    /// assert_eq!(event_pulse::models::UniqueIdentifier::is_valid_identifier("some_uid_str"), true);
-    /// assert_eq!(event_pulse::models::UniqueIdentifier::is_valid_identifier("123"), false);
-    /// ```
-    pub fn is_valid_identifier(s: &str) -> bool {
-        RE_UID.is_match(s)
-    }
-
-    /// The inner string value of the identifier.
-    ///
-    /// # Returns
-    ///
-    /// A reference to the inner string value of the identifier.
-    pub const fn into_inner(&self) -> &str {
-        self.uid
-    }
-}
-
-/// The `Display` trait implementation enables formatting an `Identifier` for display purposes.
-/// It allows converting an `Identifier` instance to a string representation.
-///
-/// # Example
-///
+/// ```ignore
+/// V V V V  W W W W W W W W
+/// └─────┘ └───────────────┘
+///    |           |
+///  Prefix    Timestamp
 /// ```
-/// use std::fmt::Display;
-/// use event_pulse::models::UniqueIdentifier;
-/// use event_pulse::models::uid::Prefix;
-///
-/// let pre = Prefix::new("uid").unwrap_or_default();
-/// let uid = UniqueIdentifier::new_with_prefix(pre).unwrap();
-/// println!("Uid: {}", uid);
-/// ```
-///
-impl Display for UniqueIdentifier {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.uid)
+pub fn global_id(pfx: &str) -> [u8; 12] {
+    let id_prefix = prefix(pfx).unwrap_or_else(|err| {
+        panic!("Failed to generate prefix: {}", err);
+    });
+    let timestamp = crate::utils::timestamp();
+    let mut global_id = [0; 12];
+
+    // Fill the first four elements with the prefix bytes
+    global_id[..4].copy_from_slice(&id_prefix);
+    // Fill the next eight elements with the timestamp bytes
+    global_id[4..].copy_from_slice(&timestamp.to_be_bytes());
+
+    global_id
+}
+
+impl GlobalId {
+    /// Converts the GlobalID to a Vec<u8>, convenience method to satisfy Structsy, ID type.
+    pub fn to_vec(&self) -> Vec<u8> {
+        self.0.to_vec()
+    }
+    /// Converts a Vec<u8> to a GlobalId.
+    ///
+    /// This method expects the input vector to have a length of 12 bytes.
+    /// If the length is different, it will panic.
+    pub fn from_vec(vec: Vec<u8>) -> GlobalId {
+        assert_eq!(vec.len(), 12, "Input vector length must be 12 bytes");
+
+        let mut global_id = [0; 12];
+        global_id.copy_from_slice(&vec);
+        GlobalId(global_id)
+    }
+
+    /// Returns the prefix string from the GlobalId.
+    #[allow(dead_code)]
+    fn get_prefix_str(&self) -> String {
+        // Extract the prefix bytes from the first 4 elements of the array
+        let prefix_bytes = &self.0[..4];
+        // Convert the bytes to characters and collect them into a string
+        prefix_bytes.iter().map(|&b| b as char).collect()
+    }
+
+    /// Returns the timestamp from the GlobalId.
+    pub fn get_timestamp(&self) -> u64 {
+        // Extract the timestamp bytes from the remaining 8 elements of the array
+        let timestamp_bytes = &self.0[4..];
+        // Ensure that there are exactly 8 bytes for the timestamp
+        assert_eq!(timestamp_bytes.len(), 8);
+        // Convert the bytes to a u64 value using big-endian byte order
+        u64::from_be_bytes([
+            timestamp_bytes[0],
+            timestamp_bytes[1],
+            timestamp_bytes[2],
+            timestamp_bytes[3],
+            timestamp_bytes[4],
+            timestamp_bytes[5],
+            timestamp_bytes[6],
+            timestamp_bytes[7],
+        ])
     }
 }
 
-impl Deref for UniqueIdentifier {
-    type Target = &'static str;
-
-    fn deref(&self) -> &Self::Target {
-        &self.uid
-    }
-}
-
-impl TryFrom<Prefix> for UniqueIdentifier {
-    type Error = UniqueIdentifierError;
-
-    fn try_from(value: Prefix) -> Result<Self, Self::Error> {
-        UniqueIdentifier::new_with_prefix(value)
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
-pub enum UniqueIdentifierType {
-    String,
-}
-
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub enum UniqueIdentifierValue {
-    String(String),
-}
-
-impl std::fmt::Display for UniqueIdentifierValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::String(value) => write!(f, "{}", value),
+impl fmt::Display for GlobalId {
+    /// Formats the GlobalId as a human-readable string.
+    ///
+    /// The first 4 bytes are represented as characters,
+    /// remaining 8 bytes are represented as hexadecimal digits.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Represent bytes 0 through 3 as chars
+        for &byte in &self.0[..4] {
+            write!(f, "{}", char::from(byte).to_uppercase())?;
         }
-    }
-}
 
-impl IntoUniqueIdentifierValue for &str {
-    const TYPE: UniqueIdentifierType = UniqueIdentifierType::String;
-    fn into_unique_identifier_value(self) -> UniqueIdentifierValue {
-        UniqueIdentifierValue::String(self.to_string())
-    }
-}
+        // Represent bytes 4 through 11 as hexadecimal string
+        for &byte in &self.0[4..] {
+            write!(f, "{:02X}", byte)?;
+        }
 
-/// Represents a value that can be used as an identifier value.
-///
-/// The `IntoUniqueIdentifierValue` trait allows converting values into `IdentifierValue` instances,
-/// specifying the type of the value.
-///
-/// Implementations of this trait should provide the associated constant `TYPE` with the specific
-/// `IdentifierType` variant corresponding to the type being converted.
-pub trait IntoUniqueIdentifierValue {
-    /// the type of the value
-    const TYPE: UniqueIdentifierType;
-    /// Converts the value into the corresponding `IdentifierValue` variant.
-    ///
-    /// # Returns
-    ///
-    /// An `IdentifierValue` variant containing the converted value.
-    fn into_unique_identifier_value(self) -> UniqueIdentifierValue;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -249,39 +130,91 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_new_with_prefix() {
-        let prefix1 = match crate::models::uid::Prefix::new("acct") {
-            Ok(prefix) => prefix,
-            Err(err) => {
-                // Handle the error here
-                panic!("Error creating prefix1: {:?}", err);
-            }
-        };
-        let prefix2 = match crate::models::uid::Prefix::new("") {
-            Ok(prefix) => prefix,
-            Err(err) => {
-                // Handle the error here
-                panic!("Error creating prefix2: {:?}", err);
-            }
-        };
-        let prefix3 = crate::models::uid::Prefix::new("invalid prefix").unwrap_or_default();
+    fn test_timestamp() {
+        // Test if timestamp function returns a value greater than 0
+        assert!(crate::utils::timestamp() > 0);
+    }
 
-        // Test with a valid prefix
-        let result = UniqueIdentifier::new_with_prefix(prefix1);
-        assert!(result.is_ok());
-        let pxid = result.unwrap();
-        assert!(pxid.uid.starts_with("acct_"));
+    #[test]
+    fn test_prefix_valid_length() {
+        // Test prefix function with valid input length
+        assert_eq!(prefix("abcd").unwrap(), [97, 98, 99, 100]); // ASCII values: 'a', 'b', 'c', 'd'
+    }
 
-        // Test with an invalid prefix (empty)
-        let result = UniqueIdentifier::new_with_prefix(prefix2);
-        assert!(result.is_err());
+    #[test]
+    fn test_prefix_invalid_length() {
+        // Test prefix function with invalid input length
         assert_eq!(
-            result.unwrap_err().to_string(),
-            "Failed to create Factory for xid: Failed to decode into a XID. Failed to retrieve the prefix from the provided encoded PXID "
+            prefix("abcdefghi").unwrap_err(),
+            PrefixError::InvalidPrefixLength(String::from("Expected 1 to 4 bytes. Received: 9"))
         );
+    }
 
-        // Test with an invalid prefix (contains space)
-        let result = UniqueIdentifier::new_with_prefix(prefix3);
-        assert!(result.is_err());
+    #[test]
+    fn test_prefix_zero_length() {
+        // Test prefix function with invalid input length
+        assert_eq!(
+            prefix("").unwrap_err(),
+            PrefixError::InvalidPrefixLength(String::from("Expected 1 to 4 bytes. Received: 0"))
+        );
+    }
+
+    #[test]
+    fn test_concatenated_id() {
+        // Test concatenated_id function
+        let concatenated_id = global_id("test");
+        assert_eq!(concatenated_id.len(), 12); // Length should be 12 bytes
+    }
+
+    #[test]
+    fn test_display_to_uppercase() {
+        // Test Display implementation for ConcatenatedId
+        // first 4 bytes, prefix = "abcd"
+        let concatenated_id = GlobalId([97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108]);
+        assert_eq!(format!("{}", concatenated_id), "ABCD65666768696A6B6C");
+    }
+
+    #[test]
+    fn test_to_vec() {
+        let global_id = GlobalId([
+            0x61, 0x62, 0x63, 0x64, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        ]);
+        let vec = global_id.to_vec();
+        assert_eq!(
+            vec,
+            vec![0x61, 0x62, 0x63, 0x64, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]
+        );
+    }
+
+    #[test]
+    fn test_from_vec() {
+        let vec = vec![
+            0x61, 0x62, 0x63, 0x64, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        ];
+        let global_id = GlobalId::from_vec(vec.clone());
+        assert_eq!(
+            global_id.0,
+            [0x61, 0x62, 0x63, 0x64, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]
+        );
+    }
+
+    #[test]
+    fn test_get_prefix_str() {
+        let global_id = GlobalId([
+            0x61, 0x62, 0x63, 0x64, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        ]);
+        assert_eq!(global_id.get_prefix_str(), "abcd");
+    }
+
+    #[test]
+    fn test_get_timestamp() {
+        let mut gid: GlobalId = GlobalId([0; 12]);
+        let timestamp: u64 = 1710778108;
+        let bytes_conversion = timestamp.to_be_bytes();
+        let prefix = prefix("test").unwrap();
+        gid.0[..4].copy_from_slice(&prefix);
+        gid.0[4..].copy_from_slice(&bytes_conversion);
+
+        assert_eq!(gid.get_timestamp(), 1710778108);
     }
 }
