@@ -65,15 +65,18 @@ impl Money {
     ///
     /// # Returns
     ///
-    /// A new `Money` instance representing the monetary amount, or an error if the scale is too large or if the value cannot be represented as `i64`.
+    /// A new `Money` instance representing the monetary amount, or an error if the scale is too
+    /// large or if the value cannot be represented as `i64`.
     ///
     /// # Errors
     ///
     /// This method may return an error of type `MoneyError` or panic under the following conditions:
     ///
-    /// * If the scale of the provided `RustDecimal` is greater than 28, indicating that the scale is too large to represent a monetary amount accurately.
-    /// * If the adjusted integral part cannot be represented as `i64`, indicating that the monetary amount is too large to fit within the range of a 64-bit signed integer.
+    /// * If the scale of the provided `RustDecimal` is greater than 28, indicating that the scale
+    /// is too large to represent a monetary amount accurately.
     ///
+    /// * If the adjusted integral part cannot be represented as `i64`, indicating that the monetary
+    /// amount is too large to fit within the range of a 64-bit signed integer.
     pub fn from_rust_decimal(decimal: RustDecimal) -> Result<Self, MoneyError> {
         // Extracting integral part and scale
         let (integral_part, scale) = (decimal.mantissa(), decimal.scale());
