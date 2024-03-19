@@ -1,4 +1,4 @@
-use crate::models::{epoch::Epoch, signal::SignalTrigger, uid::GlobalId};
+use crate::models::{decimal::Money, epoch::Epoch, signal::SignalTrigger, uid::GlobalId};
 use crate::utils;
 
 use chrono::{DateTime, Utc};
@@ -9,7 +9,7 @@ use structsy::derive::PersistentEmbedded;
 pub struct Event {
     id: Vec<u8>,                   // UniqueId that is Url safe
     title: String,                 // Name of the event
-    amount: f64,                   // Currency amount of the event
+    amount: Money,                 // Currency amount of the event
     epoch: Epoch,                  // Time scale for the event
     tags: Option<Vec<String>>,     // Classification for an event
     signal_trigger: SignalTrigger, // Military-Time trigger for the event
@@ -22,7 +22,7 @@ impl Event {
     /// Constructor to create a new `Event`
     pub fn new(
         title: String,
-        amount: f64,
+        amount: Money,
         epoch: Epoch,
         tags: Option<Vec<String>>,
         signal_trigger: SignalTrigger,

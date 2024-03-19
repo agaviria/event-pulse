@@ -23,7 +23,7 @@ pub enum MoneyError {
 ///     fractional: 50,
 /// };
 /// ```
-#[derive(Debug, PersistentEmbedded)]
+#[derive(Clone, Debug, PartialEq, PersistentEmbedded)]
 pub struct Money {
     pub whole: i64,
     pub fractional: i64,
