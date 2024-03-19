@@ -12,7 +12,7 @@ pub enum PrefixError {
 
 /// Generates a 4-byte string slice prefix from input string. If the input
 /// string is shorter than 4 bytes, it pads the result with zeros.
-pub fn prefix(input: &str) -> Result<[u8; 4], PrefixError> {
+fn prefix(input: &str) -> Result<[u8; 4], PrefixError> {
     if !std::str::from_utf8(input.as_bytes()).is_ok() {
         return Err(PrefixError::InvalidUtf8);
     }
@@ -34,32 +34,32 @@ pub fn prefix(input: &str) -> Result<[u8; 4], PrefixError> {
 #[derive(Debug)]
 pub struct GlobalId([u8; 12]);
 
-/// Generates a concatenated ID using the given prefix string.
-/// The provided prefix must not exceed 4 bytes in length. Prefix is a way to provide
-/// human readeable context to a global ID, similar to a `tag`.
-///
-/// ```ignore
-/// V V V V  W W W W W W W W
-/// └─────┘ └───────────────┘
-///    |           |
-///  Prefix    Timestamp
-/// ```
-pub fn global_id(pfx: &str) -> [u8; 12] {
-    let id_prefix = prefix(pfx).unwrap_or_else(|err| {
-        panic!("Failed to generate prefix: {}", err);
-    });
-    let timestamp = crate::utils::timestamp();
-    let mut global_id = [0; 12];
-
-    // Fill the first four elements with the prefix bytes
-    global_id[..4].copy_from_slice(&id_prefix);
-    // Fill the next eight elements with the timestamp bytes
-    global_id[4..].copy_from_slice(&timestamp.to_be_bytes());
-
-    global_id
-}
-
 impl GlobalId {
+    /// Generates a concatenated ID using the given prefix string.
+    /// The provided prefix must not exceed 4 bytes in length. Prefix is a way to provide
+    /// human readeable context to a global ID, similar to a `tag`.
+    ///
+    /// ```ignore
+    /// V V V V  W W W W W W W W
+    /// └─────┘ └───────────────┘
+    ///    |           |
+    ///  Prefix    Timestamp
+    /// ```
+    pub fn new(pfx: &str) -> [u8; 12] {
+        let id_prefix = prefix(pfx).unwrap_or_else(|err| {
+            panic!("Failed to generate prefix: {}", err);
+        });
+        let timestamp = crate::utils::timestamp();
+        let mut global_id = [0; 12];
+
+        // Fill the first four elements with the prefix bytes
+        global_id[..4].copy_from_slice(&id_prefix);
+        // Fill the next eight elements with the timestamp bytes
+        global_id[4..].copy_from_slice(&timestamp.to_be_bytes());
+
+        global_id
+    }
+
     /// Converts the GlobalID to a Vec<u8>, convenience method to satisfy Structsy, ID type.
     pub fn to_vec(&self) -> Vec<u8> {
         self.0.to_vec()
@@ -128,6 +128,7 @@ impl fmt::Display for GlobalId {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use GlobalId;
 
     #[test]
     fn test_timestamp() {
@@ -162,7 +163,7 @@ mod tests {
     #[test]
     fn test_concatenated_id() {
         // Test concatenated_id function
-        let concatenated_id = global_id("test");
+        let concatenated_id = GlobalId::new("test");
         assert_eq!(concatenated_id.len(), 12); // Length should be 12 bytes
     }
 
