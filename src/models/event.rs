@@ -7,7 +7,30 @@ use chrono::{DateTime, Utc};
 use log::{info, warn};
 use structsy::derive::PersistentEmbedded;
 
-// Separate type to represent time-triggered events
+/// Represents an event with associated metadata.
+///
+/// This struct encapsulates information about an event, including its unique
+/// identifier, title, currency amount, time scale, tags, signal trigger,
+/// start and end date, and creation date.
+///
+/// # Examples
+///
+/// ```
+/// use event_pulse::models::event::Event;
+/// use event_pulse::models::{decimal::Money, epoch::Epoch, SignalTrigger};
+/// use chrono::{Utc, DateTime};
+///
+/// // Create a new event
+/// let event = Event::new(
+///     "Citizens Policy".to_string(),
+///     Money::new(100, 0),
+///     Epoch::Day,
+///     Some(vec!["insurance".to_string(), "home".to_string()]),
+///     SignalTrigger::from_str("M12:30:15::I259200").expect("valid signal trigger"),
+///     Utc::now(),
+///     Utc::now(),
+/// );
+/// ```
 #[derive(Debug, Clone, PartialEq, PersistentEmbedded)]
 pub struct Event {
     id: Vec<u8>,                       // UniqueId that is Url safe
@@ -53,6 +76,12 @@ impl Event {
     }
 }
 
+/// Manages events and their associated tags.
+///
+/// `EventManager` is responsible for handling events and their associated tags.
+/// It provides methods to create new events, tag events with specific labels,
+/// retrieve tags associated with events, delete tags, and remove events from
+/// their associated tags.
 pub struct EventManager {
     event_tags_map: HashMap<Vec<u8>, HashSet<String>>,
 }
