@@ -183,14 +183,6 @@ impl EventNotify {
         self.scheduled_event = event;
     }
 
-    /// Triggers the notification manually.
-    ///
-    /// This method can be used to trigger a notification outside of the
-    /// scheduled triggers.
-    pub fn trigger_notification(&self) {
-        // Logic to trigger notification goes here
-    }
-
     /// Returns a list of all recipients for this notification.
     pub fn list_recipients(&self) -> Vec<&Recipient> {
         self.recipients.iter().collect()
